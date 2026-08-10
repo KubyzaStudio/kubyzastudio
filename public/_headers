@@ -1,0 +1,34 @@
+# En-têtes Cloudflare Pages.
+# L'export statique ne peut pas définir d'en-têtes via next.config — c'est ici.
+
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+
+# Les images générées au build (convention Next.js) n'ont pas d'extension :
+# sans ces deux règles, elles seraient servies en `application/octet-stream`
+# et aucun réseau social n'afficherait la vignette de partage.
+/opengraph-image
+  Content-Type: image/png
+  Cache-Control: public, max-age=604800
+
+/apple-icon
+  Content-Type: image/png
+  Cache-Control: public, max-age=604800
+
+# Les assets Next portent un hash dans leur nom : cache définitif.
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.woff2
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.png
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.svg
+  Cache-Control: public, max-age=31536000, immutable

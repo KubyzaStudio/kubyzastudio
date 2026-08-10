@@ -1,0 +1,496 @@
+@import "tailwindcss";
+
+/* ==================================================================
+   KUBYZA STUDIO — DESIGN SYSTEM
+   Un seul endroit pour les couleurs, l'espace, la lumière et le temps.
+   ================================================================== */
+
+@theme {
+  /* --- Couleurs : le vide cosmique ------------------------------- */
+  --color-void: #04050a;
+  --color-deep: #070a14;
+  --color-abyss: #0a0f1e;
+  --color-nebula: #121a33;
+  --color-ink: #1a2340;
+  --color-edge: #232f52;
+
+  /* --- Couleurs : la lumière ------------------------------------- */
+  --color-star: #eaf0ff;
+  --color-mist: #9caac8;
+  /* Contraste mesuré sur le fond cosmique : 4,9:1 — au-dessus du seuil AA
+     (4,5:1). Toute valeur plus sombre rendrait les mentions illisibles. */
+  --color-dim: #717d9a;
+
+  /* --- Accent : bleu électrique ---------------------------------- */
+  --color-accent: #3d6bff;
+  --color-accent-soft: #6e97ff;
+  --color-accent-glow: #a9c8ff;
+
+  /* --- Typographies ---------------------------------------------- */
+  --font-display: var(--font-space-grotesk), "Segoe UI", system-ui, sans-serif;
+  --font-sans: var(--font-inter), "Segoe UI", system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "SFMono-Regular", monospace;
+
+  /* --- Rayons ----------------------------------------------------- */
+  --radius-card: 1.25rem;
+  --radius-panel: 1.75rem;
+
+  /* --- Ombres & lueurs -------------------------------------------- */
+  --shadow-depth: 0 30px 80px -30px rgba(0, 0, 0, 0.9);
+  --shadow-glow: 0 0 60px -12px rgba(61, 107, 255, 0.55);
+  --shadow-inner-light: inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+
+  /* --- Temps : tout est lent et cinématique ----------------------- */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-quint: cubic-bezier(0.83, 0, 0.17, 1);
+
+  /* --- Breakpoint supplémentaire ---------------------------------- */
+  --breakpoint-xs: 26rem;
+}
+
+/* ==================================================================
+   BASE
+   ================================================================== */
+
+@layer base {
+  * {
+    border-color: color-mix(in oklab, var(--color-edge) 60%, transparent);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    /* Le smooth scroll est géré par Lenis — on neutralise le natif. */
+    scroll-behavior: auto;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-void);
+    color: var(--color-star);
+    font-family: var(--font-sans);
+    font-synthesis-weight: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /*
+      Verrou de débordement latéral.
+      Plusieurs blocs de la page dépassent volontairement de la grille —
+      la rangée des réalisations, la piste du constat, les halos en
+      `blur` dont la boîte déborde de plusieurs centaines de pixels. Sans
+      ce verrou, chacun ouvrirait une barre horizontale sur téléphone.
+      `hidden` reste préféré à `clip` : Safari n'a reconnu `clip` qu'à
+      partir de la version 16, et nos visiteurs ont de vieux iPhone.
+    */
+    overflow-x: hidden;
+  }
+
+  /* Un média n'a jamais le droit d'être plus large que sa colonne. */
+  img,
+  svg,
+  video,
+  canvas {
+    max-width: 100%;
+  }
+
+  /* Au doigt : pas de délai de 300 ms sur le tap, et jamais de zoom
+     accidentel en tapant deux fois sur une commande. */
+  @media (hover: none) {
+    a,
+    button,
+    [role="button"],
+    label {
+      touch-action: manipulation;
+    }
+  }
+
+  /* Lenis : évite le double scroll et les sauts de layout. */
+  html.lenis,
+  html.lenis body {
+    height: auto;
+  }
+  .lenis.lenis-smooth {
+    scroll-behavior: auto !important;
+  }
+  .lenis.lenis-stopped {
+    overflow: hidden;
+  }
+
+  /* Curseur maison : on masque le natif, sauf là où il porte du sens. */
+  @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+    body,
+    body * {
+      cursor: none;
+    }
+    input,
+    textarea,
+    select {
+      cursor: auto;
+    }
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-accent) 45%, transparent);
+    color: var(--color-star);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent-soft);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+
+  /* Scrollbar discrète, dans l'univers. */
+  ::-webkit-scrollbar {
+    width: 9px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--color-void);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-ink);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-edge);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    line-height: 0.95;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  input,
+  textarea,
+  select,
+  button {
+    font: inherit;
+    color: inherit;
+  }
+}
+
+/* ==================================================================
+   UTILITAIRES DE L'UNIVERS
+   ================================================================== */
+
+@utility container-x {
+  width: 100%;
+  margin-inline: auto;
+  max-width: 88rem;
+  padding-inline: 1.25rem;
+
+  @media (width >= 48rem) {
+    padding-inline: 2.5rem;
+  }
+  @media (width >= 80rem) {
+    padding-inline: 4rem;
+  }
+}
+
+/* Titre géant, fluide, sans jamais casser sur petit écran. */
+@utility type-display {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 0.92;
+  font-size: clamp(2.5rem, 8.5vw, 7rem);
+}
+
+@utility type-heading {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  line-height: 1;
+  font-size: clamp(2rem, 5.5vw, 4.25rem);
+}
+
+/* ==================================================================
+   JAMBAGES — pourquoi le « g » ressemblait à un « q »
+   ------------------------------------------------------------------
+   Space Grotesk descend jusqu'à ~0,27 em sous la ligne de base.
+   Avec `line-height: 0.92`, la ligne de base tombe à ~0,94 em du haut
+   de la boîte : la queue du « g » sort donc de 0,21 em SOUS la boîte.
+
+   Deux mécanismes la coupaient net, et une queue de « g » coupée droite
+   se lit exactement comme un « q » :
+
+   1. `overflow: hidden` du masque d'entrée, dont la réserve basse
+      (0,3 em) était à 0,003 em près de la limite — un pixel d'arrondi
+      suffisait à trancher.
+   2. `background-clip: text` : le dégradé n'est peint que sur la boîte
+      de l'élément. Tout glyphe qui en sort n'est pas peint — et comme
+      la couleur est `transparent`, il disparaît purement et simplement.
+
+   Ces deux utilitaires réservent la place une fois pour toutes, sans
+   décaler la mise en page (marge négative de compensation).
+   ================================================================== */
+
+/* Réserve typographique : accents en haut, jambages en bas. */
+@utility type-safe {
+  padding-block: 0.14em 0.42em;
+  margin-block: -0.14em -0.42em;
+}
+
+/* Masque d'entrée d'une ligne de titre — coupe le haut, jamais le bas. */
+@utility line-mask {
+  display: block;
+  overflow: hidden;
+  padding-block: 0.14em 0.42em;
+  margin-block: -0.14em -0.42em;
+}
+
+/* Étiquette technique type télémétrie NASA. */
+@utility label-mono {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-accent-soft);
+}
+
+/* Surface de verre : la base de toutes les cartes flottantes. */
+@utility glass {
+  position: relative;
+  background: linear-gradient(
+    to bottom right,
+    color-mix(in oklab, var(--color-nebula) 55%, transparent),
+    color-mix(in oklab, var(--color-deep) 75%, transparent)
+  );
+  border: 1px solid color-mix(in oklab, var(--color-edge) 70%, transparent);
+  backdrop-filter: blur(14px);
+  box-shadow: var(--shadow-depth), var(--shadow-inner-light);
+}
+
+/* Dégradé de texte utilisé sur les mots-clés.
+   La réserve verticale est obligatoire : sans elle, la peinture s'arrête
+   à la boîte et les jambages disparaissent (voir la note « JAMBAGES »). */
+@utility type-luminous {
+  display: inline-block;
+  padding-block: 0.14em 0.42em;
+  margin-block: -0.14em -0.42em;
+  /* Un cheveu à droite : le dégradé ne se coupe pas sur le dernier glyphe. */
+  padding-inline-end: 0.06em;
+  margin-inline-end: -0.06em;
+  background: linear-gradient(
+    100deg,
+    var(--color-star) 0%,
+    var(--color-accent-glow) 45%,
+    var(--color-accent-soft) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Séparateur : un rayon de lumière qui s'éteint sur les bords. */
+@utility hairline {
+  height: 1px;
+  width: 100%;
+  background: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in oklab, var(--color-accent) 40%, transparent),
+    transparent
+  );
+}
+
+@utility masked-fade-b {
+  mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
+}
+
+/* ==================================================================
+   GRAIN + VIGNETTE — la texture qui rend le noir vivant
+   ================================================================== */
+
+.grain::after {
+  content: "";
+  position: fixed;
+  inset: -50%;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.028;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.vignette::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 90% 70% at 50% 45%,
+    transparent 40%,
+    rgba(4, 5, 10, 0.75) 100%
+  );
+}
+
+/* ==================================================================
+   ANIMATIONS PARTAGÉES
+   ================================================================== */
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes orbit {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes drift-y {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes sweep {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(220%);
+  }
+}
+
+@keyframes scan {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 0 -220px;
+  }
+}
+
+.animate-breathe {
+  animation: breathe 5s var(--ease-in-out-quint) infinite;
+}
+.animate-drift {
+  animation: drift-y 7s var(--ease-in-out-quint) infinite;
+}
+
+/* ==================================================================
+   LES DÉCORS DE MISSION
+   ------------------------------------------------------------------
+   Quatre scènes tournent en permanence dans la rangée des réalisations.
+   Elles sont dessinées en SVG, donc gratuites à afficher — mais une
+   rotation qui tourne hors de l'écran reste une rotation calculée. Le
+   décor est donc mis en pause dès qu'il quitte le champ, et repris
+   quand il revient : c'est `data-live` qui commande, depuis
+   l'IntersectionObserver de `MissionScene`.
+   ================================================================== */
+
+@keyframes spin-reverse {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+/* Le halo d'un noeud qui s'allume, puis retombe.
+   L'échelle porte sur la boîte de remplissage du cercle, pas sur le
+   repère du SVG : sans `fill-box`, chaque noeud reviendrait au centre. */
+@keyframes node-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.72);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.35);
+  }
+}
+
+/* La lueur qui balaie un objet encore dans l'ombre. */
+@keyframes shadow-sweep {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  45% {
+    opacity: 0.5;
+  }
+  55% {
+    opacity: 0.5;
+  }
+}
+
+/* Le trait de construction qui se referme sans jamais se boucler. */
+@keyframes dash-run {
+  to {
+    stroke-dashoffset: -160;
+  }
+}
+
+.scene-spin {
+  animation: orbit linear infinite;
+  transform-origin: center;
+}
+.scene-spin-reverse {
+  animation: spin-reverse linear infinite;
+  transform-origin: center;
+}
+.scene-pulse {
+  animation: node-pulse var(--ease-in-out-quint) infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.scene-dash {
+  animation: dash-run linear infinite;
+}
+.scene-sweep {
+  animation: shadow-sweep var(--ease-in-out-quint) infinite;
+}
+
+/* Hors champ : plus rien ne tourne. */
+[data-live="false"] .scene-spin,
+[data-live="false"] .scene-spin-reverse,
+[data-live="false"] .scene-pulse,
+[data-live="false"] .scene-dash,
+[data-live="false"] .scene-sweep {
+  animation-play-state: paused;
+}
+
+/* ==================================================================
+   ACCESSIBILITÉ — on coupe le mouvement si l'utilisateur le demande
+   ================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
