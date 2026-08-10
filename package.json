@@ -8,11 +8,9 @@
   "build": "next build",
   "start": "next start",
   "lint": "next lint",
-  "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-  "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
-  "upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
-  "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
-  },
+  "preview": "npm run build && wrangler pages dev out",
+  "deploy": "npm run build && wrangler pages deploy out"
+},
   "dependencies": {
     "@react-three/drei": "^10.7.8",
     "@react-three/fiber": "^9.7.0",
@@ -27,7 +25,6 @@
     "three": "^0.185.1"
   },
   "devDependencies": {
-    "@opennextjs/cloudflare": "latest"
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^22.10.2",
     "@types/react": "^19.2.0",
