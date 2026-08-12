@@ -244,7 +244,7 @@ export function Signal() {
                 <li key={channel.id} className="flex items-center gap-2">
                   <span className="relative block h-5 w-5 shrink-0 sm:h-6 sm:w-6">
                     <Image
-                      src={channel.artifact}
+                      src={channel.artifactSmall}
                       alt=""
                       fill
                       sizes="24px"
@@ -398,7 +398,7 @@ export function Signal() {
                     <span className="relative block aspect-square w-12 shrink-0 sm:w-14">
                       <span className="absolute inset-[-30%] rounded-full bg-accent/18 opacity-0 blur-2xl transition-opacity duration-700 group-hover:opacity-100" />
                       <Image
-                        src={channel.artifact}
+                        src={channel.artifactSmall}
                         alt=""
                         fill
                         sizes="3.5rem"

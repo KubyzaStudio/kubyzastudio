@@ -32,3 +32,15 @@
 
 /*.svg
   Cache-Control: public, max-age=31536000, immutable
+
+# Les artefacts et les captures de réalisations. Ils ne portent pas de hash
+# dans leur nom : renommer le fichier est la seule façon de forcer une
+# nouvelle version — c'est le contrat, et il vaut mieux que revalider une
+# image immuable à chaque visite.
+/*.webp
+  Cache-Control: public, max-age=31536000, immutable
+
+# La route des avis décide elle-même de son cache (voir la réponse de
+# `functions/api/reviews.ts`) : une minute au bord du réseau en lecture,
+# aucune mise en cache en écriture. Rien à déclarer ici — cette section
+# n'existe que pour rappeler que l'omission est volontaire.

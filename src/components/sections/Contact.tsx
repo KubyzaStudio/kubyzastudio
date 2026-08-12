@@ -1,11 +1,58 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { site } from "@/data/site";
 import { Section } from "@/components/ui/Section";
 import { Reveal } from "@/components/ui/Reveal";
 import { AnimatedText } from "@/components/ui/AnimatedText";
-import { ContactForm } from "./ContactForm";
 import { Mail, Phone } from "@/components/ui/Icons";
+
+/**
+ * Le formulaire est le plus gros composant de la page — quatre écrans, un
+ * récapitulatif de configuration, une machine à états d'envoi — et c'est
+ * aussi le dernier contenu du voyage. Ce que Google doit lire de cette
+ * section, ce sont le titre, l'adresse et le numéro, qui restent rendus
+ * côté serveur juste à côté ; le formulaire lui-même n'est qu'une suite de
+ * champs vides.
+ *
+ * Il est donc chargé après le reste, et sa hauteur est réservée par le
+ * gabarit ci-dessous : la page ne bouge pas d'un pixel quand il se
+ * substitue à lui. C'est cette réservation qui rend le report acceptable —
+ * sans elle, on échangerait du temps de chargement contre du décalage
+ * visuel, ce qui n'est pas un gain mais un déplacement.
+ */
+const ContactForm = dynamic(
+  () => import("./ContactForm").then((m) => m.ContactForm),
+  { ssr: false, loading: () => <FormSkeleton /> },
+);
+
+/** Le volume exact du formulaire, en creux : bandeau d'étape, corps, pied. */
+function FormSkeleton() {
+  return (
+    <div aria-hidden="true" className="glass overflow-hidden rounded-panel">
+      <div className="border-b border-edge/50 bg-void/50 px-6 py-5 sm:px-9">
+        <div className="h-2.5 w-24 rounded-full bg-ink/70" />
+        <div className="mt-3 h-4 w-40 rounded-full bg-ink/50" />
+        <div className="mt-5 flex gap-1.5">
+          {[0, 1, 2, 3].map((i) => (
+            <span key={i} className="h-px flex-1 bg-ink" />
+          ))}
+        </div>
+      </div>
+      <div className="space-y-10 p-6 sm:p-9">
+        <div>
+          <div className="h-2.5 w-28 rounded-full bg-ink/60" />
+          <div className="mt-4 h-px w-full bg-edge/70" />
+        </div>
+        <div>
+          <div className="h-2.5 w-36 rounded-full bg-ink/60" />
+          <div className="mt-4 h-px w-full bg-edge/70" />
+        </div>
+        <div className="h-14 w-full rounded-full bg-ink/40 sm:ml-auto sm:h-15 sm:w-48" />
+      </div>
+    </div>
+  );
+}
 
 /**
  * Le point de conversion.

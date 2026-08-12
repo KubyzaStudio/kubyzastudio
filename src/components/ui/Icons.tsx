@@ -93,6 +93,21 @@ export const Phone = (p: IconProps) => (
   </Icon>
 );
 
+/**
+ * L'étoile de notation.
+ *
+ * C'est la seule icône du jeu qui accepte un remplissage, et l'exception est
+ * assumée : une note se lit d'un coup d'œil, à la surface pleine, jamais au
+ * contour. Le tracé reste celui de la maison — sommets adoucis, trait fin —
+ * de sorte qu'une étoile éteinte appartienne visiblement à la même famille
+ * que les autres icônes du site.
+ */
+export const Star = ({ filled, ...p }: IconProps & { filled?: boolean }) => (
+  <Icon fill={filled ? "currentColor" : "none"} {...p}>
+    <path d="M12 3.6l2.6 5.3 5.8.85-4.2 4.1 1 5.75-5.2-2.73-5.2 2.73 1-5.75-4.2-4.1 5.8-.85z" />
+  </Icon>
+);
+
 /* --- Icônes de missions ------------------------------------------- */
 
 export const IconSite = (p: IconProps) => (

@@ -19,6 +19,8 @@ transformer un visiteur en demande de devis.
 - [Design system](#design-system)
 - [La scène 3D et les performances](#la-scène-3d-et-les-performances)
 - [Formulaire de contact](#formulaire-de-contact)
+- [Avis clients](#avis-clients)
+- [Artefacts et vignettes](#artefacts-et-vignettes)
 - [Variables d'environnement](#variables-denvironnement)
 - [Déploiement sur Cloudflare Pages](#déploiement-sur-cloudflare-pages)
 - [SEO](#seo)
@@ -234,6 +236,87 @@ create table contact_requests (
 
 ---
 
+## Avis clients
+
+Les avis sont stockés dans Supabase et **aucun n'apparaît sans validation**.
+
+### Le parcours
+
+```
+Visiteur → « Laisser un avis » → formulaire → POST /api/reviews
+        → Supabase, status = "pending"
+        → vous approuvez ou refusez
+        → seuls les "approved" sont renvoyés par GET /api/reviews
+```
+
+### Mise en place, une seule fois
+
+1. Supabase → **SQL Editor** → **New query** → coller `supabase/reviews.sql`
+   → **Run**. Le script crée la table, les contraintes, l'index et les règles
+   RLS. Il est idempotent : le relancer ne casse rien.
+2. Supabase → **Project Settings → API** : relever `Project URL` et la clé
+   `anon / public`.
+3. Cloudflare Pages → **Settings → Environment variables** : renseigner
+   `SUPABASE_URL` et `SUPABASE_ANON_KEY`.
+
+Sans ces variables, la section reste en ligne et affiche son invitation :
+la lecture renvoie une liste vide plutôt qu'une erreur.
+
+### Modérer un avis
+
+Supabase → **Table Editor** → `reviews` → colonne `status` :
+
+| Passer à | Effet |
+| --- | --- |
+| `approved` | l'avis apparaît sur le site en moins d'une minute |
+| `rejected` | l'avis n'apparaîtra jamais |
+
+La vue `reviews_pending` liste les avis en attente, les plus anciens d'abord.
+Aucun back-office n'a été créé : le Table Editor fait exactement ce travail,
+et une interface d'administration maison serait une surface à sécuriser en
+plus, pour rien.
+
+En SQL, si vous préférez :
+
+```sql
+update public.reviews set status = 'approved' where id = '…';
+```
+
+### Ce qu'un visiteur ne peut pas faire
+
+| | |
+| --- | --- |
+| Publier directement | `status` est écrit par le serveur, jamais lu depuis la requête |
+| Forger `status = approved` | refusé par la règle RLS `with check (status = 'pending')` |
+| Modifier ou supprimer un avis | aucune policy `update` / `delete` n'existe |
+| Lire les avis en attente ou refusés | la policy `select` ne rend visible que `approved` |
+
+Le navigateur ne parle jamais à Supabase : tout passe par
+`functions/api/reviews.ts`. La clé anonyme ne quitte pas le serveur, et la
+directive `connect-src 'self'` de `public/_headers` reste inchangée.
+
+---
+
+## Artefacts et vignettes
+
+Les artefacts 3D de `public/artefacts/` existent en deux tailles : le fichier
+d'origine (768 px, pour l'objet posé en grand) et sa vignette `-sm` (192 px,
+pour le pied de page et la liste des canaux). L'export statique interdit
+l'optimiseur d'images de Next : sans cette seconde taille, 80 Ko partiraient
+pour peindre un carré de 24 px.
+
+Après avoir ajouté ou remplacé un artefact :
+
+```bash
+node scripts/artefacts.mjs
+```
+
+Puis déclarer les deux chemins dans `src/data/site.ts` (`artifact` et
+`artifactSmall`). Les vignettes sont versionnées — elles ne sont pas
+régénérées au build.
+
+---
+
 ## Variables d'environnement
 
 Copier `.env.example` :
@@ -248,8 +331,14 @@ Copier `.env.example` :
 | `RESEND_API_KEY` | pour le formulaire | Clé API Resend |
 | `CONTACT_FROM_EMAIL` | pour le formulaire | Expéditeur vérifié dans Resend |
 | `CONTACT_TO_EMAIL` | pour le formulaire | Destinataire des demandes |
-| `SUPABASE_URL` | non | Archivage des demandes |
-| `SUPABASE_SERVICE_ROLE_KEY` | non | Archivage des demandes |
+| `SUPABASE_URL` | pour les avis | Base des avis, et archivage des demandes |
+| `SUPABASE_ANON_KEY` | pour les avis | Lecture et dépôt des avis, borné par RLS |
+| `SUPABASE_SERVICE_ROLE_KEY` | non | Archivage des demandes **uniquement** |
+
+> `SUPABASE_SERVICE_ROLE_KEY` contourne les règles RLS. Elle ne sert qu'à
+> `/api/contact` et ne doit jamais être exposée au navigateur ni utilisée
+> pour les avis. Aucune de ces variables n'est préfixée `NEXT_PUBLIC_` :
+> elles restent toutes côté serveur.
 
 `NEXT_PUBLIC_SITE_URL` est lue **au build** : la modifier impose un redéploiement.
 
@@ -330,7 +419,10 @@ Restent ces points, qui dépendent d'informations ou d'accès extérieurs.
 - [ ] **Resend** — `CONTACT_TO_EMAIL` est l'adresse Gmail du studio, mais
       `CONTACT_FROM_EMAIL` doit appartenir à un **domaine vérifié** dans Resend :
       une adresse Gmail en expéditeur sera refusée par l'API.
-- [ ] **Avis clients** — la bande « Engagements » remplace les témoignages.
-      N'y publier un avis qu'après accord écrit de la personne citée.
+- [ ] **Avis clients** — exécuter `supabase/reviews.sql`, puis renseigner
+      `SUPABASE_URL` et `SUPABASE_ANON_KEY` dans Cloudflare Pages. Tant que
+      ces deux variables sont absentes, la section reste en ligne et affiche
+      son invitation, mais aucun avis ne peut être déposé.
+      Voir [Avis clients](#avis-clients).
 - [ ] **Mentions légales** — ajouter une page dédiée (obligation légale en
       France pour un site professionnel).

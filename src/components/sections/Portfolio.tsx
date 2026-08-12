@@ -268,7 +268,21 @@ function FeaturedMission({
                   "object-cover transition-transform duration-[1400ms] ease-[cubic-bezier(0.16,1,0.3,1)]",
                   hover ? "scale-[1.04]" : "scale-100",
                 )}
-                priority
+                /*
+                  `priority` a été retiré, et c'était le plus coûteux des
+                  réglages d'image du site. Il inscrivait dans l'en-tête du
+                  document un `<link rel="preload" as="image">` en priorité
+                  haute — pour une capture d'écran située quatre sections
+                  plus bas, que personne ne voit avant plusieurs secondes de
+                  défilement. Sur un téléphone en 4G, ce préchargement
+                  disputait la bande passante au premier écran au moment
+                  exact où celui-ci en avait besoin.
+
+                  Le chargement paresseux, qui est le comportement par
+                  défaut, est le bon ici : l'image part quand la section
+                  approche. `priority` ne se justifie que pour un visuel du
+                  premier écran, et cette page n'en a aucun.
+                */
               />
             )}
             {/* Le fondu qui raccorde la capture au vide de la page. */}

@@ -155,7 +155,7 @@ export function Footer() {
                         className="absolute inset-[-40%] rounded-full bg-accent/25 opacity-0 blur-lg transition-opacity duration-700 group-hover:opacity-100"
                       />
                       <Image
-                        src={channel.artifact}
+                        src={channel.artifactSmall}
                         alt=""
                         fill
                         sizes="32px"

@@ -12,9 +12,27 @@ const inter = Inter({
   display: "swap",
 });
 
+/*
+  Space Grotesk porte tous les titres du site, et le titre du hero est
+  l'élément qui décide du LCP : sa police est donc préchargée, et chaque
+  fichier inutile qu'elle traîne retarde le moment où le texte s'affiche
+  dans sa vraie fonte.
+
+  Quatre graisses étaient déclarées — 400, 500, 600, 700 — et `next/font`
+  télécharge ce qu'on lui demande, qu'on s'en serve ou non. Un relevé de
+  toutes les classes du projet donne : 39 emplois de `font-medium` (500) et
+  un seul de `font-normal` (400). Les graisses 600 et 700 n'apparaissent
+  nulle part, ni dans les composants, ni dans `globals.css` — où les titres
+  sont fixés à `font-weight: 500`.
+
+  Deux fichiers woff2 partaient donc à chaque visite sans jamais peindre un
+  seul glyphe. `font-synthesis-weight: none` (dans `globals.css`) garantit
+  par ailleurs qu'aucun gras synthétique ne viendra les remplacer en
+  cachette : si une graisse manquait vraiment, cela se verrait tout de suite.
+*/
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "500"],
   variable: "--font-space-grotesk",
   display: "swap",
 });

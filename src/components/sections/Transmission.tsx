@@ -21,6 +21,37 @@ const LAYOUTS = [
   "items-end justify-start text-right",
 ] as const;
 
+/**
+ * OÙ SE POSE LE CHIFFRE FANTÔME
+ * ==========================================================================
+ * Il était calé au centre exact du panneau — `items-center justify-center` —
+ * quelle que soit la mise en page du texte. Or `LAYOUTS` déplace le texte
+ * d'un panneau à l'autre, et le deuxième (`items-end justify-center`, celui
+ * qui porte le « 02 ») est précisément celui dont le bloc est centré
+ * verticalement. Les deux se posaient donc au même endroit : le texte,
+ * opaque, traversait le chiffre en son milieu et le donnait à lire en
+ * morceaux.
+ *
+ * Le chiffre est maintenant renvoyé dans la zone que le texte laisse libre,
+ * en diagonale — texte en haut à gauche, chiffre en bas à droite, et ainsi
+ * de suite. Rien n'a changé d'autre : ni sa taille, ni son opacité de
+ * 2,2 %, ni le fait qu'il reste derrière tout le contenu. La composition y
+ * gagne même l'équilibre en diagonale qu'elle cherchait déjà.
+ *
+ * L'ordre suit `LAYOUTS` index par index : les deux tableaux se lisent
+ * ensemble, et modifier l'un sans l'autre ramènerait la superposition.
+ */
+const GHOST_PLACEMENTS = [
+  // 0 · texte en haut à gauche  → chiffre en bas à droite
+  "items-end justify-end pr-[7%] pb-[6%]",
+  // 1 · texte centré à droite   → chiffre en bas à gauche
+  "items-end justify-start pl-[5%] pb-[6%]",
+  // 2 · texte en bas à gauche   → chiffre en haut à droite
+  "items-start justify-end pt-[6%] pr-[7%]",
+  // 3 · texte en haut à droite  → chiffre en bas à gauche
+  "items-end justify-start pl-[5%] pb-[6%]",
+] as const;
+
 function Panel({
   index,
   code,
@@ -58,19 +89,35 @@ function Panel({
     >
       {/* Le chiffre fantôme : il donne la profondeur du panneau sans
           ajouter un seul mot. Calé sur la hauteur de l'écran en piste,
-          sur celle du panneau en colonne. */}
+          sur celle du panneau en colonne.
+
+          Il reste le premier enfant de l'article, donc peint avant le texte :
+          c'est l'ordre du DOM qui garantit qu'il passe DERRIÈRE, sans avoir
+          à inventer un `z-index`. En ajouter un ici créerait un contexte
+          d'empilement de plus à tenir dans une section déjà épinglée par
+          ScrollTrigger — le rang naturel est plus sûr. */}
       <span
         aria-hidden="true"
         className={cn(
-          "pointer-events-none absolute inset-0 flex items-center font-display leading-none font-medium text-white/[0.022] select-none",
+          "pointer-events-none absolute inset-0 flex font-display leading-none font-medium text-white/[0.022] select-none",
           horizontal
-            ? "justify-center text-[36vh]"
-            : "justify-end pr-4 text-[7rem] xs:text-[9rem]",
+            ? ["text-[36vh]", GHOST_PLACEMENTS[index % GHOST_PLACEMENTS.length]]
+            : // En colonne, le texte part toujours du haut à gauche. Le
+              // chiffre était calé à droite et centré verticalement : il
+              // croisait donc le titre, l'élément le plus dense du panneau.
+              // Il descend au pied du bloc, derrière la fin du paragraphe —
+              // du texte fin et en `text-mist`, qui laisse la forme du
+              // chiffre lisible. Sur 320 px de large, la séparation ne peut
+              // être que verticale : il n'y a pas de place pour deux
+              // colonnes. Taille inchangée.
+              "items-end justify-end pr-4 text-[7rem] xs:text-[9rem]",
         )}
       >
         {code}
       </span>
 
+      {/* `relative` suffit à poser le texte au-dessus du chiffre : un élément
+          positionné est peint après un élément statique de même rang. */}
       <div className="relative max-w-md">
         <div className="flex items-center gap-2.5">
           <span className="h-1 w-1 rounded-full bg-[#ff8fa3] shadow-[0_0_8px_1px_rgba(255,143,163,0.7)]" />

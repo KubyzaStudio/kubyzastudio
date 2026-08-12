@@ -34,8 +34,22 @@ export type Channel = {
   label: string;
   handle: string;
   href: string;
-  /** Rendu 3D détouré, utilisé partout où le canal apparaît. */
+  /** Rendu 3D détouré, 768 px — pour l'objet posé en grand. */
   artifact: string;
+  /**
+   * Le même rendu en 192 px, pour les vignettes.
+   *
+   * L'export statique interdit l'optimiseur d'images de Next (`unoptimized`
+   * dans `next.config.ts`) : `sizes` ne génère aucun `srcset`, et le
+   * navigateur télécharge toujours le fichier tel qu'il est nommé. Un
+   * artefact de 768 px était donc servi entier pour peindre un carré de
+   * 24 px dans le pied de page — 78 Ko pour l'équivalent d'une puce.
+   *
+   * Les deux tailles sont donc déclarées ici, explicitement, et chaque
+   * emplacement choisit la sienne. Régénérer les vignettes après avoir
+   * remplacé un artefact : voir `README.md`.
+   */
+  artifactSmall: string;
   /** Ce qu'on y trouve — une phrase, jamais plus. */
   note: string;
   /** Ce qu'on y gagne, dit au visiteur. */
@@ -59,6 +73,7 @@ const channels: Channel[] = [
     handle: "kubyza.studio",
     href: SNAPCHAT_URL,
     artifact: "/artefacts/snapchat.webp",
+    artifactSmall: "/artefacts/snapchat-sm.webp",
     note: "Les coulisses, en direct.",
     promise: "Le chantier au jour le jour",
     primary: true,
@@ -69,6 +84,7 @@ const channels: Channel[] = [
     handle: "@kubyzastudio",
     href: TELEGRAM_URL,
     artifact: "/artefacts/telegram.webp",
+    artifactSmall: "/artefacts/telegram-sm.webp",
     note: "Une réponse, tout de suite.",
     promise: "Une réponse en direct",
     primary: false,
@@ -79,6 +95,7 @@ const channels: Channel[] = [
     handle: "@kubyza.studio",
     href: INSTAGRAM_URL,
     artifact: "/artefacts/instagram.webp",
+    artifactSmall: "/artefacts/instagram-sm.webp",
     note: "Les lancements, en images.",
     promise: "Les lancements en images",
     primary: false,
@@ -146,7 +163,8 @@ export const site = {
     { code: "06", label: "Offres", href: "#offres", body: "Méridienne" },
     { code: "07", label: "Estimation", href: "#estimation", body: "Orbite basse" },
     { code: "08", label: "Preuves", href: "#preuves", body: "Approche" },
-    { code: "09", label: "Contact", href: "#contact", body: "Terminus" },
+    { code: "09", label: "Avis", href: "#avis", body: "Échos" },
+    { code: "10", label: "Contact", href: "#contact", body: "Terminus" },
   ],
 } as const;
 

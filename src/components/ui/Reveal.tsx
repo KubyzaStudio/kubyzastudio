@@ -3,6 +3,7 @@
 import { motion, type Variants } from "motion/react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { useIsTouch } from "@/lib/hooks";
 
 type RevealProps = {
   children: ReactNode;
@@ -19,6 +20,20 @@ type RevealProps = {
 /**
  * Apparition au scroll : opacité, léger déplacement, flou qui se dissipe.
  * Le mouvement est lent et unique — jamais de rejeu au scroll inverse.
+ *
+ * LE VOILE ET LE TÉLÉPHONE
+ * --------------------------------------------------------------------------
+ * `filter: blur()` est la seule propriété animée ici qui ne soit pas
+ * composable : le navigateur la recalcule à chaque frame, sur toute la boîte
+ * de l'élément, et il ne peut pas déléguer ce travail au GPU comme il le fait
+ * pour l'opacité et la translation. Ce composant enveloppe une centaine de
+ * blocs sur la page — au défilement, sur un téléphone, cela se paie en images
+ * perdues.
+ *
+ * Au doigt, le voile est donc retiré ; le déplacement et le fondu, eux,
+ * restent identiques au pixel près. C'est le seul endroit du site où une
+ * intention visuelle est arbitrée par l'appareil, et c'est délibéré : le voile
+ * est un raffinement qu'on remarque sur un grand écran et jamais sur un petit.
  */
 export function Reveal({
   children,
@@ -29,12 +44,14 @@ export function Reveal({
   as = "div",
 }: RevealProps) {
   const MotionTag = motion[as];
+  const isTouch = useIsTouch();
+  const veil = blur && !isTouch;
 
   const variants: Variants = {
     hidden: {
       opacity: 0,
       y,
-      filter: blur ? "blur(12px)" : "blur(0px)",
+      filter: veil ? "blur(12px)" : "blur(0px)",
     },
     visible: {
       opacity: 1,

@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
-import { usePrefersReducedMotion } from "@/lib/hooks";
+import { useIsTouch, usePrefersReducedMotion } from "@/lib/hooks";
 
 /**
  * Étoiles déterministes.
@@ -43,10 +43,50 @@ const PHASES = [
   "Lancement en cours",
 ] as const;
 
-const TOTAL_MS = 2600;
+/**
+ * L'ÉCRAN DE LANCEMENT N'EXISTE PAS SUR TÉLÉPHONE
+ * ==========================================================================
+ * Il durait 2 600 ms, plus 420 ms de palier à « 100 % » : trois secondes
+ * d'écran noir imposées à chaque première visite. Sur un grand écran c'est
+ * une mise en scène — le panneau se lève, l'habitacle s'allume. Au doigt,
+ * c'était exactement ce que les visiteurs décrivaient comme « le site est
+ * lent à charger ». Le décor n'y était pour rien : la page était prête
+ * depuis longtemps, on la retenait.
+ *
+ * Il a d'abord été raccourci à 850 ms au doigt. À l'usage, sur un vrai
+ * téléphone, le verdict a été net : à cette durée on ne voit plus la mise en
+ * scène, on ne perçoit qu'un délai. Une animation qu'on n'a pas le temps de
+ * lire n'est plus une animation — c'est une attente.
+ *
+ * Sur téléphone, le site s'ouvre donc directement sur le hero. Sur
+ * ordinateur, le compte à rebours est conservé DANS SA DURÉE D'ORIGINE :
+ * 2 600 ms de séquence, puis 420 ms de palier à « 100 % ». C'est le temps
+ * qu'il faut pour que les trois phases se lisent et que la barre ait un
+ * sens ; l'écourter revenait à garder le décor en lui retirant sa raison
+ * d'être.
+ *
+ * Ce que cela coûte est assumé et cantonné : sur grand écran, le hero reste
+ * couvert le temps de la séquence. Ce n'a jamais été là que se posait le
+ * problème — la lenteur signalée était celle du téléphone, et le téléphone
+ * n'a plus d'écran de lancement du tout.
+ *
+ * L'escamotage mobile se joue à DEUX endroits, et les deux sont nécessaires :
+ *
+ *   · en CSS (`.preloader` dans `globals.css`), pour que rien ne soit peint
+ *     avant même que le JavaScript arrive — sans quoi l'écran noir
+ *     apparaîtrait le temps de l'hydratation, ce qui reviendrait à le
+ *     garder sous une autre forme ;
+ *   · ici, pour que `launched` bascule immédiatement et que le reste du
+ *     hero entre en scène sans attendre un compte à rebours qui ne
+ *     s'affiche plus.
+ */
+const TOTAL_DESKTOP_MS = 2600;
+/** Palier de respiration après « 100 % », avant l'ouverture. */
+const HOLD_MS = 420;
 
 export function Preloader({ onDone }: { onDone: () => void }) {
   const reduced = usePrefersReducedMotion();
+  const isTouch = useIsTouch();
   const [visible, setVisible] = useState(true);
   const [percent, setPercent] = useState(0);
   const [phase, setPhase] = useState(0);
@@ -69,20 +109,22 @@ export function Preloader({ onDone }: { onDone: () => void }) {
       requestAnimationFrame(() => window.dispatchEvent(new Event("resize")));
     };
 
-    // Vu une fois par session, ou mouvement réduit : on ne fait pas patienter.
-    // Le report d'une microtâche évite un rendu en cascade au montage.
+    // Téléphone, seconde visite de la session, ou mouvement réduit : on ne
+    // fait patienter personne. Le report d'une microtâche évite un rendu en
+    // cascade au montage.
     const seen = sessionStorage.getItem("kubyza:launched") === "1";
-    if (seen || reduced) {
+    if (isTouch || seen || reduced) {
       queueMicrotask(finish);
       return;
     }
 
     document.documentElement.style.overflow = "hidden";
+    const total = TOTAL_DESKTOP_MS;
     const start = performance.now();
 
     let frame = 0;
     const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / TOTAL_MS);
+      const t = Math.min(1, (now - start) / total);
       // Easing : démarrage franc, palier, puis complétion nette.
       const eased = 1 - Math.pow(1 - t, 2.4);
       setPercent(Math.round(eased * 100));
@@ -90,28 +132,32 @@ export function Preloader({ onDone }: { onDone: () => void }) {
       if (t < 1) {
         frame = requestAnimationFrame(tick);
       } else {
-        // On laisse le "100 %" respirer une demi-seconde avant l'ouverture.
-        window.setTimeout(finish, 420);
+        // On laisse le « 100 % » se poser un instant avant l'ouverture.
+        window.setTimeout(finish, HOLD_MS);
       }
     };
     frame = requestAnimationFrame(tick);
 
-    // Filet de sécurité : jamais plus de 4 secondes, quoi qu'il arrive.
-    const failsafe = window.setTimeout(finish, 4000);
+    // Filet de sécurité : la séquence complète, son palier, et une seconde
+    // de marge. Un onglet mis en arrière-plan gèle `rAF` — sans ce filet, le
+    // visiteur qui revient trouverait l'écran de lancement figé.
+    // Le calcul suit les constantes : changer la durée du compte à rebours
+    // ne peut plus laisser le filet en dessous de lui.
+    const failsafe = window.setTimeout(finish, total + HOLD_MS + 1000);
 
     return () => {
       cancelAnimationFrame(frame);
       window.clearTimeout(failsafe);
       document.documentElement.style.overflow = "";
     };
-  }, [onDone, reduced]);
+  }, [onDone, reduced, isTouch]);
 
   return (
     <AnimatePresence>
       {visible && (
         <motion.div
           key="preloader"
-          className="fixed inset-0 z-100 flex flex-col items-center justify-center overflow-hidden bg-void"
+          className="preloader fixed inset-0 z-100 flex flex-col items-center justify-center overflow-hidden bg-void"
           initial={{ opacity: 1 }}
           exit={{
             opacity: 0,
@@ -136,10 +182,15 @@ export function Preloader({ onDone }: { onDone: () => void }) {
             ))}
           </div>
 
-          {/* Lueur bleue qui monte, comme une mise à feu lointaine. */}
+          {/* Lueur bleue qui monte, comme une mise à feu lointaine.
+              Le rayon du flou est le geste le plus cher de tout l'écran de
+              lancement : il s'applique à une boîte de 140 vw sur 70 vh, et
+              c'est justement l'instant où le téléphone a le plus à faire.
+              70 px au lieu de 120 px sur petit écran : la lueur garde sa
+              forme et son étalement — elle coûte trois fois moins. */}
           <motion.div
             aria-hidden="true"
-            className="absolute bottom-[-30%] h-[70vh] w-[140vw] rounded-[50%] bg-accent/18 blur-[120px]"
+            className="absolute bottom-[-30%] h-[70vh] w-[140vw] rounded-[50%] bg-accent/18 blur-[70px] sm:blur-[120px]"
             initial={{ opacity: 0.15, scale: 0.85 }}
             animate={{ opacity: 0.5, scale: 1.05 }}
             transition={{ duration: 2.6, ease: [0.16, 1, 0.3, 1] }}

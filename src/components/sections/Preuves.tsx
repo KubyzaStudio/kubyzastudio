@@ -69,10 +69,21 @@ export function Preuves() {
         ))}
       </div>
 
+      {/* La phrase disait « aucun avis n'est affiché tant qu'il n'a pas été
+          recueilli et autorisé ». C'était vrai parce qu'il n'y avait pas de
+          mécanisme ; c'est vrai désormais parce qu'il y en a un. La règle n'a
+          pas changé — elle est simplement appliquée par la base de données,
+          et le visiteur peut maintenant y contribuer. */}
       <p className="container-x mt-8 max-w-md text-xs leading-relaxed text-dim">
-        Aucun avis client n&apos;est affiché ici tant qu&apos;il n&apos;a pas
-        été recueilli et autorisé. Le studio préfère annoncer ce sur quoi il
-        s&apos;engage.
+        Les engagements ci-dessus sont ceux du studio. Ce que les clients en
+        disent est{" "}
+        <a
+          href="#avis"
+          className="text-accent-soft underline-offset-4 transition-colors duration-300 hover:text-accent-glow hover:underline"
+        >
+          plus bas, dans les avis
+        </a>{" "}
+        — aucun n&apos;y paraît sans avoir été recueilli et vérifié.
       </p>
 
       {/* --- Comment ça se passe -------------------------------------- */}

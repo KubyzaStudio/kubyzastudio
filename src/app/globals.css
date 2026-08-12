@@ -312,10 +312,17 @@
    GRAIN + VIGNETTE — la texture qui rend le noir vivant
    ================================================================== */
 
+/*
+  Le grain couvrait `inset: -50%`, soit quatre fois la surface de l'écran.
+  Rien ne le déplace — aucune animation ne justifiait ce débord — et le
+  compositeur repeignait donc quatre écrans de bruit à chaque frame. La
+  texture est répétable : `inset: 0` donne exactement le même rendu pour
+  un quart du coût. C'est l'un des rares gains qui ne se voit pas.
+*/
 .grain::after {
   content: "";
   position: fixed;
-  inset: -50%;
+  inset: 0;
   z-index: 60;
   pointer-events: none;
   opacity: 0.028;
@@ -333,6 +340,47 @@
     transparent 40%,
     rgba(4, 5, 10, 0.75) 100%
   );
+}
+
+/* ==================================================================
+   L'ENTRÉE DU TITRE — pourquoi elle est en CSS et non en JavaScript
+   ------------------------------------------------------------------
+   Le titre du hero est l'élément qui décide du LCP : c'est le plus
+   grand bloc de texte de la première page. Il était animé par `motion`
+   ET conditionné à la fin du préchargeur. Deux verrous en série :
+
+     1. `initial="hidden"` le laissait à `opacity: 0` dans le HTML
+        statique — donc invisible tant que le bundle client n'était pas
+        téléchargé, analysé et hydraté ;
+     2. `animate={launched ? …}` ne le libérait qu'à la fin du compte à
+        rebours du préchargeur, soit 3 020 ms plus tard.
+
+   Un élément à `opacity: 0` n'est pas un candidat LCP. Le LCP mobile ne
+   pouvait donc PAS descendre sous trois secondes, quelle que soit la
+   qualité du réseau — c'était une limite de construction, pas de débit.
+
+   Écrite en CSS, la même animation démarre à la première peinture, sans
+   attendre le moindre octet de JavaScript. Le dessin est identique : une
+   ligne qui monte derrière son masque. Seul le déclencheur a changé.
+   ================================================================== */
+
+@keyframes hero-line {
+  from {
+    opacity: 0;
+    transform: translateY(108%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hero-line {
+  /* `both` : l'état d'arrivée persiste, et l'état de départ s'applique
+     pendant le retard. En mouvement réduit, la règle globale ramène la
+     durée à ~0 — le titre est alors simplement là, tout de suite. */
+  animation: hero-line 1.15s var(--ease-out-expo) both;
+  animation-delay: var(--hero-delay, 0s);
 }
 
 /* ==================================================================
@@ -478,6 +526,45 @@
 [data-live="false"] .scene-dash,
 [data-live="false"] .scene-sweep {
   animation-play-state: paused;
+}
+
+/* ==================================================================
+   BUDGET GRAPHIQUE DU TÉLÉPHONE
+   ------------------------------------------------------------------
+   Rien n'est retiré ici : les surfaces, les lueurs et les textures
+   restent toutes en place. Ce sont leurs RAYONS qui baissent, et eux
+   seuls — un `backdrop-filter` coûte proportionnellement au carré de
+   son rayon, et un GPU de téléphone floute une zone de 14 px quatre
+   fois plus cher qu'une zone de 7 px. À l'œil, sur un écran tenu à
+   trente centimètres, l'écart ne se voit pas ; au compteur de frames,
+   il vaut plusieurs images par seconde sur chaque carte de verre.
+
+   Le seuil retenu est `pointer: coarse` plutôt qu'une largeur : c'est
+   l'appareil qui compte, pas la taille de la fenêtre. Une fenêtre de
+   navigateur rétrécie sur un ordinateur garde le rendu complet.
+   ================================================================== */
+
+@media (pointer: coarse) {
+  .glass {
+    backdrop-filter: blur(7px);
+  }
+
+  /*
+    L'écran de lancement n'existe pas au doigt.
+
+    Cette règle double la condition posée dans `Preloader.tsx`, et le doublon
+    est le point important : le composant ne peut décider qu'une fois le
+    JavaScript arrivé, hydraté et la media query interrogée. D'ici là, le
+    HTML statique contient le préchargeur — il serait donc peint, en noir,
+    plein écran, exactement pendant les quelques centaines de millisecondes
+    qu'on cherche à supprimer. On aurait déplacé l'attente, pas retirée.
+
+    Le CSS, lui, s'applique dès la première peinture. Le téléphone ne voit
+    jamais l'écran noir ; l'ordinateur garde la mise en scène intacte.
+  */
+  .preloader {
+    display: none !important;
+  }
 }
 
 /* ==================================================================

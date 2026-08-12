@@ -22,15 +22,6 @@ const rise: Variants = {
   },
 };
 
-const lineUp: Variants = {
-  hidden: { y: "108%", opacity: 0 },
-  visible: {
-    y: "0%",
-    opacity: 1,
-    transition: { duration: 1.5, ease: EASE },
-  },
-};
-
 /**
  * LE DÉPART
  * ==========================================================================
@@ -40,6 +31,25 @@ const lineUp: Variants = {
  *
  * Il n'y a ni rangée de boutons, ni paragraphe sous le titre. Une seule
  * commande, en bas à gauche, et la promesse rejetée dans le coin opposé.
+ *
+ * DEUX HORLOGES, ET POURQUOI ELLES SONT SÉPARÉES
+ * --------------------------------------------------------------------------
+ * Tout le hero attendait `launched` — c'est-à-dire la fin du préchargeur.
+ * Pour le décor, c'est le bon geste : le panneau se lève, l'habitacle
+ * s'allume. Pour le TITRE, c'était une faute de performance, parce qu'un
+ * texte à `opacity: 0` n'est pas un candidat LCP : la mesure ne pouvait pas
+ * démarrer avant l'hydratation, puis avant la fin du compte à rebours.
+ *
+ * Les deux horloges sont donc découplées :
+ *
+ *   · le titre monte en CSS (`.hero-line`), à la première peinture, sans
+ *     attendre une seule ligne de JavaScript ;
+ *   · le reste — repère de lieu, coordonnées, commande, promesse — garde
+ *     `launched` et son entrée en cascade.
+ *
+ * À l'écran, le préchargeur ne dure plus que 850 ms au doigt : il se lève
+ * pendant que la troisième ligne finit encore de monter. La mise en scène
+ * est conservée ; ce qu'on a supprimé, c'est l'attente.
  */
 export function Hero() {
   const launched = useLaunched();
@@ -66,15 +76,13 @@ export function Hero() {
         </p>
       </motion.div>
 
-      <motion.div
-        className="container-x relative z-1 flex flex-1 flex-col justify-center"
-        variants={stage}
-        initial="hidden"
-        animate={state}
-      >
+      <div className="container-x relative z-1 flex flex-1 flex-col justify-center">
         {/* Le repère. Aligné sur la deuxième ligne du titre, pas au-dessus. */}
         <motion.div
           variants={rise}
+          initial="hidden"
+          animate={state}
+          transition={{ delay: 0.2 }}
           className="mb-10 flex items-center gap-3 sm:mb-14 sm:pl-[8%]"
         >
           <span className="relative flex h-1.5 w-1.5">
@@ -105,37 +113,37 @@ export function Hero() {
         <h1 className="relative">
           {/* Ligne 1 — petite, discrète, en retrait. Elle annonce. */}
           <span className="line-mask">
-            <motion.span
-              variants={lineUp}
-              className="block font-display text-[clamp(1.25rem,4.6vw,3rem)] leading-[1.05] font-normal tracking-[-0.01em] text-mist sm:tracking-[-0.02em]"
-            >
+            <span className="hero-line block font-display text-[clamp(1.25rem,4.6vw,3rem)] leading-[1.05] font-normal tracking-[-0.01em] text-mist sm:tracking-[-0.02em]">
               Nous lançons
-            </motion.span>
+            </span>
           </span>
 
-          {/* Ligne 2 — la masse. Elle occupe la largeur disponible. */}
+          {/* Ligne 2 — la masse. Elle occupe la largeur disponible, et c'est
+              elle que le navigateur retient comme candidat LCP. Son retard
+              est le plus court des trois pour cette raison précise : chaque
+              milliseconde ajoutée ici est une milliseconde de LCP. */}
           <span className="line-mask mt-1.5 sm:mt-2">
-            <motion.span
-              variants={lineUp}
-              className="block font-display text-[clamp(2.75rem,11.6vw,10rem)] leading-[0.9] font-medium tracking-[-0.035em] text-star sm:leading-[0.86] sm:tracking-[-0.05em]"
+            <span
+              className="hero-line block font-display text-[clamp(2.75rem,11.6vw,10rem)] leading-[0.9] font-medium tracking-[-0.035em] text-star sm:leading-[0.86] sm:tracking-[-0.05em]"
+              style={{ "--hero-delay": "0.06s" } as React.CSSProperties}
             >
               votre présence
-            </motion.span>
+            </span>
           </span>
 
           {/* Ligne 3 — rejetée à droite, plus petite : la phrase retombe.
               C'est ici que se trouve le « g » : la réserve de jambage est
               portée par `line-mask` et par `type-luminous`. */}
           <span className="line-mask mt-1.5 flex justify-end sm:mt-3">
-            <motion.span
-              variants={lineUp}
-              className="type-luminous block font-display text-[clamp(2.35rem,9.4vw,7rem)] leading-[0.95] font-medium tracking-[-0.03em] sm:leading-[0.9] sm:tracking-[-0.045em]"
+            <span
+              className="type-luminous hero-line block font-display text-[clamp(2.35rem,9.4vw,7rem)] leading-[0.95] font-medium tracking-[-0.03em] sm:leading-[0.9] sm:tracking-[-0.045em]"
+              style={{ "--hero-delay": "0.14s" } as React.CSSProperties}
             >
               en ligne.
-            </motion.span>
+            </span>
           </span>
         </h1>
-      </motion.div>
+      </div>
 
       {/*
         LE PIED DE L'ÉCRAN
