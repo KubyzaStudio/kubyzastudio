@@ -1,5 +1,23 @@
 # En-têtes Cloudflare Pages.
 # L'export statique ne peut pas définir d'en-têtes via next.config — c'est ici.
+#
+# NOTE SUR `connect-src`
+# ----------------------------------------------------------------------------
+# Une seule origine extérieure y est autorisée : api.web3forms.com. C'est le
+# repli du formulaire de contact, et il ne part du navigateur que parce que le
+# plan gratuit de Web3Forms refuse les appels serveur (403, « Use our API in
+# client side »). Voir `src/components/sections/ContactForm.tsx`.
+#
+# Supabase n'y figure PAS, et ne doit pas y figurer : les avis passent
+# entièrement par `/api/reviews`, en même origine. Y ajouter *.supabase.co
+# signifierait que le navigateur parle directement à la base — précisément ce
+# que l'architecture des avis évite.
+#
+# `form-action` reste à 'self' : rien n'est soumis par un POST de formulaire
+# natif, tout passe par `fetch`.
+#
+# Les commentaires restent HORS des blocs de règles : une ligne indentée dans
+# un bloc est lue comme une déclaration d'en-tête par Cloudflare.
 
 /*
   X-Content-Type-Options: nosniff
@@ -7,7 +25,7 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()
   Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://api.web3forms.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
 
 # Les images générées au build (convention Next.js) n'ont pas d'extension :
 # sans ces deux règles, elles seraient servies en `application/octet-stream`

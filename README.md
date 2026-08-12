@@ -328,9 +328,10 @@ Copier `.env.example` :
 | Variable | Obligatoire | Rôle |
 | --- | --- | --- |
 | `NEXT_PUBLIC_SITE_URL` | oui | URL canonique, sitemap, Open Graph |
-| `RESEND_API_KEY` | pour le formulaire | Clé API Resend |
-| `CONTACT_FROM_EMAIL` | pour le formulaire | Expéditeur vérifié dans Resend |
-| `CONTACT_TO_EMAIL` | pour le formulaire | Destinataire des demandes |
+| `NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY` | pour le formulaire | Repli d'envoi, appelé depuis le navigateur |
+| `RESEND_API_KEY` | facultatif | Clé API Resend — chemin préféré |
+| `CONTACT_FROM_EMAIL` | avec Resend | Expéditeur **d'un domaine vérifié** |
+| `CONTACT_TO_EMAIL` | avec Resend | Destinataire des demandes |
 | `SUPABASE_URL` | pour les avis | Base des avis, et archivage des demandes |
 | `SUPABASE_ANON_KEY` | pour les avis | Lecture et dépôt des avis, borné par RLS |
 | `SUPABASE_SERVICE_ROLE_KEY` | non | Archivage des demandes **uniquement** |
@@ -339,6 +340,18 @@ Copier `.env.example` :
 > `/api/contact` et ne doit jamais être exposée au navigateur ni utilisée
 > pour les avis. Aucune de ces variables n'est préfixée `NEXT_PUBLIC_` :
 > elles restent toutes côté serveur.
+
+Le formulaire de contact emprunte deux chemins, dans cet ordre. `/api/contact`
+tente Resend ; si aucun transporteur n'est configuré, elle répond
+`delivery_unavailable` et le navigateur bascule sur Web3Forms. Renseigner
+Resend suffit à reprendre la main — le repli cesse alors d'être atteint, il
+n'y a rien à retirer.
+
+Web3Forms **ne peut pas** être appelé côté serveur : leur plan gratuit répond
+`403 — Use our API in client side`. C'est pourquoi sa clé porte le préfixe
+`NEXT_PUBLIC_` et que `https://api.web3forms.com` figure dans la directive
+`connect-src` de `public/_headers`. Cette clé est publique par conception ;
+aucune clé Supabase ne doit jamais l'être.
 
 `NEXT_PUBLIC_SITE_URL` est lue **au build** : la modifier impose un redéploiement.
 

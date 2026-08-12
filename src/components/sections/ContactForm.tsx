@@ -66,6 +66,74 @@ const STEPS = [
 const EASE = [0.16, 1, 0.3, 1] as const;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
+/**
+ * LE REPLI D'ENVOI
+ * ==========================================================================
+ * `/api/contact` reste la voie normale : elle envoie par Resend, depuis le
+ * domaine du studio, et archive la demande. Mais Resend exige un domaine
+ * vérifié comme expéditeur — une adresse Gmail est refusée par son API. Tant
+ * que ce domaine n'existe pas, la route répond `delivery_unavailable` et le
+ * formulaire ne pouvait rien envoyer du tout.
+ *
+ * Web3Forms comble ce trou. Il ne peut pas être appelé depuis la Pages
+ * Function : leur plan gratuit refuse les requêtes serveur (403, « Use our
+ * API in client side »). L'appel part donc d'ici, du navigateur, ce qui est
+ * l'usage qu'ils documentent — et la raison pour laquelle leur clé d'accès
+ * est publique par conception : elle ne donne que le droit de déposer un
+ * message dans une boîte, jamais d'en lire un.
+ *
+ * Le repli ne se déclenche QUE sur `delivery_unavailable`. Toute autre
+ * réponse — succès, limite de débit, données refusées — est respectée telle
+ * quelle. Le jour où Resend est configuré, ce chemin cesse de lui-même
+ * d'être atteint : il n'y aura rien à retirer.
+ */
+const WEB3FORMS_KEY = process.env.NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY ?? "";
+
+async function sendViaWeb3Forms(form: Form, brief: string): Promise<boolean> {
+  if (!WEB3FORMS_KEY) return false;
+
+  const lignes = [
+    ["Métier", form.activity],
+    ["Entreprise", form.company],
+    ["Type de projet", form.projectType],
+    ["Objectif", form.goal],
+    ["Budget", form.budget],
+    ["Configuration", brief],
+    ["Nom", form.name],
+    ["Email", form.email],
+    ["Téléphone", form.phone],
+    ["Message", form.message],
+  ]
+    .filter(([, valeur]) => valeur)
+    .map(([etiquette, valeur]) => `${etiquette} : ${valeur}`)
+    .join("\n");
+
+  try {
+    const response = await fetch("https://api.web3forms.com/submit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        access_key: WEB3FORMS_KEY,
+        subject: `Mission · ${form.activity}${form.company ? ` — ${form.company}` : ""}`,
+        from_name: "Kubyza Studio",
+        message: lignes,
+        // Permet de répondre directement depuis la boîte de réception.
+        ...(form.email ? { email: form.email, replyto: form.email } : {}),
+      }),
+    });
+
+    /* Web3Forms peut répondre 200 avec `{"success": false}` — clé désactivée,
+       quota atteint. S'en tenir au code HTTP annoncerait au visiteur un envoi
+       qui n'a pas eu lieu, ce que tout le reste de ce fichier s'applique
+       justement à éviter. */
+    if (!response.ok) return false;
+    const body = (await response.json()) as { success?: boolean };
+    return body.success === true;
+  } catch {
+    return false;
+  }
+}
+
 type Status = "idle" | "sending" | "sent" | "error";
 
 /**
@@ -157,7 +225,22 @@ export function ContactForm() {
         body: JSON.stringify({ ...form, brief: brief.join(" · ") }),
       });
 
-      if (!response.ok) throw new Error(String(response.status));
+      if (!response.ok) {
+        /* `delivery_unavailable` a un sens précis : la demande est valide,
+           la route l'a acceptée, mais aucun transporteur n'était configuré
+           pour la remettre. C'est le seul cas où le repli navigateur a lieu
+           d'être — une limite de débit ou des données refusées doivent
+           remonter au visiteur, pas être contournées. */
+        const raison = await response
+          .json()
+          .then((corps: { error?: string }) => corps.error)
+          .catch(() => undefined);
+
+        if (raison !== "delivery_unavailable" || !(await sendViaWeb3Forms(form, brief.join(" · ")))) {
+          throw new Error(raison ?? String(response.status));
+        }
+      }
+
       setStatus("sent");
       setBrief({});
     } catch {

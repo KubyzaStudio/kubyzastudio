@@ -100,6 +100,29 @@ async function isRateLimited(env: Env, ip: string): Promise<boolean> {
   return false;
 }
 
+/**
+ * L'ENVOI PASSE PAR RESEND, ET PAR LUI SEUL
+ * ==========================================================================
+ * Un relais Web3Forms a été branché ici, puis retiré après essai. Le motif
+ * mérite d'être noté, parce qu'il n'est écrit nulle part dans leur
+ * documentation d'accueil et qu'il coûterait la même demi-heure à qui
+ * retenterait :
+ *
+ *   HTTP 403 — "This method is not allowed. Use our API in client side or
+ *   contact support with server IP address (Pro plan is required)"
+ *
+ * Web3Forms refuse les appels serveur sur le plan gratuit. Leur API est
+ * prévue pour être appelée depuis le navigateur, et c'est là qu'elle est
+ * désormais appelée — voir le repli dans `src/components/sections/
+ * ContactForm.tsx`, qui ne se déclenche que si cette route répond
+ * `delivery_unavailable`.
+ *
+ * Cette fonction reste donc le chemin préféré et le restera : Resend envoie
+ * depuis votre propre domaine, l'accusé de réception part sous l'identité du
+ * studio, et rien ne transite par un tiers. Le jour où `RESEND_API_KEY` et
+ * `CONTACT_FROM_EMAIL` sont renseignés, le repli navigateur cesse de lui
+ * seul d'être atteint — il n'y a rien à retirer.
+ */
 async function sendEmail(
   env: Env,
   message: {
