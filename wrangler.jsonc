@@ -1,0 +1,39 @@
+{
+  // Configuration Cloudflare **Pages**.
+  //
+  // POURQUOI CE FICHIER EXISTE
+  // ---------------------------------------------------------------------------
+  // Sans lui, `wrangler deploy` ne trouve aucune configuration, part en détection
+  // automatique, reconnaît « Next.js », en conclut « application rendue côté
+  // serveur » et déclenche tout seul la migration OpenNext : réécriture de
+  // `next.config.ts`, de `package.json`, de `.gitignore` et de `public/_headers`,
+  // puis recherche de `.next/standalone/`.
+  //
+  // Ce dossier ne peut pas exister ici : le site est en `output: "export"`, il
+  // n'y a pas de serveur à empaqueter. Le build échoue donc sur un ENOENT dont
+  // la cause est introuvable dans les logs, très loin en amont de l'erreur.
+  //
+  // C'est arrivé deux fois (projets `kubyzastudio` et `kubyzastudiov2`, créés
+  // par erreur comme des Workers). La présence de `pages_build_output_dir`
+  // ci-dessous suffit à l'empêcher : elle déclare le projet comme un projet
+  // Pages, et la détection automatique ne se lance plus jamais.
+  //
+  // ⚠ Ne pas laisser un outil régénérer ce fichier en version « Workers »
+  // (avec `main`, `assets` ou `compatibility_flags: ["nodejs_compat"]`) : ce
+  // serait revenir exactement au problème de départ.
+  "$schema": "node_modules/wrangler/config-schema.json",
+
+  // Doit correspondre au nom du projet Pages côté Cloudflare.
+  "name": "kubyza-studio",
+
+  // Le dossier produit par `next build` en export statique.
+  "pages_build_output_dir": "out",
+
+  // Fige le comportement du runtime. Servait de drapeau en ligne de commande
+  // dans le script `preview` — sa place est ici, où le déploiement la lit aussi.
+  "compatibility_date": "2026-08-08"
+
+  // Les Pages Functions de `functions/` sont détectées automatiquement : rien
+  // à déclarer. Leurs secrets (Supabase, Resend) se posent dans le dashboard,
+  // Settings > Environment variables — jamais dans ce fichier, qui est versionné.
+}

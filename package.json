@@ -8,8 +8,8 @@
   "build": "next build",
   "start": "next start",
   "lint": "next lint",
-  "preview": "npm run build && wrangler pages dev out --compatibility-date=2026-08-08",
-  "deploy": "npm run build && wrangler pages deploy out"
+  "preview": "npm run build && wrangler pages dev",
+  "deploy": "npm run build && wrangler pages deploy"
 },
   "dependencies": {
     "@react-three/drei": "^10.7.8",
