@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/Button";
 import { ArrowUpRight, Check, Star } from "@/components/ui/Icons";
@@ -34,11 +34,12 @@ export function ReviewForm({ onSent }: { onSent?: () => void }) {
   const [website, setWebsite] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>("idle");
-  const openedAt = useRef(0);
 
-  useEffect(() => {
-    openedAt.current = Date.now();
-  }, []);
+  /* Même verrou que dans `ContactForm` : `disabled={status === "sending"}`
+     n'agit qu'au rendu suivant, donc deux clics dans la même frame entrent
+     tous les deux ici et déposent deux avis identiques en modération. Une
+     ref, elle, change de valeur tout de suite. */
+  const sending = useRef(false);
 
   function validate(): string | null {
     if (name.trim().length < NAME_MIN) return "Indiquez votre prénom ou votre nom.";
@@ -51,19 +52,29 @@ export function ReviewForm({ onSent }: { onSent?: () => void }) {
   }
 
   async function submit() {
+    // Verrou immédiat : voir `sending` plus haut.
+    if (sending.current) return;
+
     const issue = validate();
     if (issue) {
       setError(issue);
       return;
     }
 
-    // Robots : champ piège renseigné, ou formulaire rempli instantanément.
-    if (website || Date.now() - openedAt.current < 2500) {
-      setStatus("sent");
-      onSent?.();
+    /* Piège à robots. Comme dans `ContactForm`, l'intention — pas de faux
+       écran de succès — est conservée, mais sans le silence total : un
+       `idle` muet laissait un visiteur devant un bouton sans réponse, et
+       rien à lire pour comprendre pourquoi. Le serveur applique de son côté
+       le même contrôle. */
+    if (website) {
+      setStatus("error");
+      setError(
+        "Votre avis n'a pas pu être envoyé. Rechargez la page puis réessayez.",
+      );
       return;
     }
 
+    sending.current = true;
     setStatus("sending");
     setError(null);
 
@@ -80,14 +91,36 @@ export function ReviewForm({ onSent }: { onSent?: () => void }) {
         }),
       });
 
-      if (!response.ok) throw new Error(String(response.status));
+      const data = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+      };
+
+      if (!response.ok || data.ok !== true) {
+        const messages: Record<string, string> = {
+          reviews_unavailable: "Le service d'avis n'est pas encore connecté. Réessayez dans un instant.",
+          storage_failed: "Votre avis n'a pas pu être enregistré. Réessayez dans un instant.",
+          rate_limited: "Trop de tentatives depuis cette connexion. Réessayez plus tard.",
+          name_required: "Indiquez votre prénom ou votre nom.",
+          city_required: "Indiquez votre ville.",
+          rating_required: "Choisissez une note, de une à cinq étoiles.",
+          quote_required: "Dites-nous un mot de plus : quelques mots suffisent, mais pas trois.",
+        };
+        throw new Error(messages[data.error ?? ""] ?? `Erreur ${response.status}`);
+      }
+
       setStatus("sent");
       onSent?.();
-    } catch {
+    } catch (error) {
       setStatus("error");
       setError(
-        "L'envoi n'a pas abouti. Réessayez dans un instant — votre texte est conservé.",
+        error instanceof Error && error.message && !error.message.startsWith("Erreur ")
+          ? error.message
+          : "L'envoi n'a pas abouti. Réessayez dans un instant — votre texte est conservé.",
       );
+    } finally {
+      // Le verrou tombe quoi qu'il arrive : un échec doit rester réessayable.
+      sending.current = false;
     }
   }
 

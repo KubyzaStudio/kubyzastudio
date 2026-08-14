@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Button } from "@/components/ui/Button";
 import { ArrowLeft, ArrowRight, ArrowUpRight, Check } from "@/components/ui/Icons";
@@ -82,9 +82,13 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
  * Cloudflare Pages ne suffit donc pas — il faut qu'elle y soit AVANT le
  * build, et un changement de valeur exige un redéploiement.
  *
- * Vide, la constante ne provoque aucune erreur visible : `sendViaWeb3Forms`
- * répond simplement `false`, et le formulaire ne repose plus que sur
- * l'archivage Supabase. Vérifier les deux ensemble, jamais l'un seul.
+ * Il n'y a AUCUNE valeur de repli codée en dur : la variable est la seule
+ * source. Absente du build, la constante vaut `""`, `sendViaWeb3Forms` répond
+ * `false` sans lever d'erreur, et plus aucun email ne part — le visiteur voit
+ * un message d'échec honnête et la demande ne survit que par l'archivage
+ * Supabase. C'est une panne silencieuse côté studio : la variable doit être
+ * posée dans Cloudflare Pages AVANT le build, et vérifiée après chaque
+ * redéploiement.
  */
 const WEB3FORMS_KEY = process.env.NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY ?? "";
 
@@ -144,13 +148,22 @@ export function ContactForm() {
   const [form, setForm] = useState<Form>(EMPTY);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>("idle");
-  const openedAt = useRef(0);
   const { plan, summary, estimate, setBrief } = useMission();
 
-  // Horodatage d'ouverture : sert à repérer les envois instantanés des robots.
-  useEffect(() => {
-    openedAt.current = Date.now();
-  }, []);
+  /* L'archivage a-t-il déjà réussi ? Voir `submit` : sans ce garde-fou, le
+     message d'erreur qui invite à réessayer produirait une ligne de plus
+     dans Supabase à chaque tentative. */
+  const archivedOnce = useRef(false);
+
+  /* Un envoi déjà en vol ?
+     `disabled={status === "sending"}` ne suffit pas : passer un état React
+     n'a d'effet qu'au rendu suivant, et deux clics dans la même frame — ou
+     un Entrée maintenu sur le bouton — entrent tous les deux dans `submit`
+     avant que le bouton ne se grise. Deux requêtes partent alors, et le
+     studio reçoit le même prospect deux fois. Une ref change de valeur
+     immédiatement, sans attendre de rendu : c'est le seul verrou qui tienne
+     dans la même frame. */
+  const sending = useRef(false);
 
   const set = <K extends keyof Form>(key: K, value: Form[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -203,17 +216,34 @@ export function ContactForm() {
   }
 
   async function submit() {
+    // Verrou immédiat : voir `sending` plus haut.
+    if (sending.current) return;
+
     const issue = validate(3);
     if (issue) {
       setError(issue);
       return;
     }
-    // Robots : formulaire rempli instantanément ou champ piège renseigné.
-    if (form.website || Date.now() - openedAt.current < 2500) {
-      setStatus("sent");
+    /* PIÈGE À ROBOTS
+       L'intention est conservée : ne jamais afficher de faux succès. Mais
+       `setStatus("idle")` ne montrait RIEN — ni erreur, ni indicateur, ni
+       mouvement. Un robot s'en moque ; un visiteur dont le navigateur aurait
+       rempli ce champ caché à sa place se retrouvait devant un bouton qui ne
+       répond pas, sans une ligne à lire pour comprendre. C'est la panne la
+       plus difficile à signaler, parce qu'il n'y a rien à signaler.
+
+       Un message explicite coûte le même code et supprime ce cul-de-sac,
+       sans rien apprendre d'utile à un robot. Le serveur applique de son
+       côté le même contrôle. */
+    if (form.website) {
+      setStatus("error");
+      setError(
+        `Votre demande n'a pas pu être envoyée. Écrivez-nous directement à ${site.contact.email}.`,
+      );
       return;
     }
 
+    sending.current = true;
     setStatus("sending");
     setError(null);
 
@@ -221,44 +251,65 @@ export function ContactForm() {
 
     /* LES DEUX CHEMINS PARTENT ENSEMBLE, ET AUCUN N'EST CONDITIONNÉ À L'AUTRE
        ======================================================================
-       L'ordre précédent était : envoyer par Web3Forms, puis archiver *si*
+       L'ordre d'origine était : envoyer par Web3Forms, puis archiver *si*
        l'envoi avait abouti. Il rendait l'archivage inatteignable exactement
-       le jour où il servait — clé Web3Forms absente du build, quota atteint,
-       compte suspendu — et la demande d'un client était alors perdue pour de
-       bon : pas d'email, pas de ligne en base, un message d'erreur, et plus
-       rien nulle part.
+       le jour où il servait — clé absente du build, quota atteint, compte
+       suspendu — et la demande était alors perdue pour de bon : pas d'email,
+       pas de ligne en base, un message d'erreur, et plus rien nulle part.
 
-       Les deux appels partent donc maintenant en parallèle, sans que l'un
-       puisse empêcher l'autre. Le succès est annoncé dès que l'un des deux a
-       réellement abouti — `archived` vient du serveur et ne vaut `true` que
-       si l'insertion Supabase a été acceptée, jamais par défaut. Un « c'est
-       noté » affiché ici correspond donc toujours à une demande que le
-       studio peut lire quelque part. */
-    const [delivered, archived] = await Promise.all([
-      sendViaWeb3Forms(form, payload.brief),
-      fetch("/api/contact", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-        .then(async (response) => {
-          if (!response.ok) return false;
-          const corps = (await response.json()) as { archived?: boolean };
-          return corps.archived === true;
-        })
-        .catch(() => false),
-    ]);
+       Les deux appels partent donc en parallèle, sans que l'un puisse
+       empêcher l'autre. L'email reste le but ; l'archivage n'est qu'un
+       filet, et il ne suffit jamais à annoncer un succès (voir plus bas).
 
-    if (!delivered && !archived) {
-      setStatus("error");
-      setError(
-        "L'envoi n'a pas abouti. Écrivez-nous directement, on vous répond aussi vite.",
-      );
-      return;
+       EXACTEMENT UNE ÉCRITURE PAR SOUMISSION
+       --------------------------------------------------------------------
+       Deux verrous, parce qu'il y a deux façons d'écrire deux fois :
+         — `sending` couvre le double-clic, dans la même frame ;
+         — `archivedOnce` couvre le renvoi après erreur. Le message ci-dessous
+           invite à réessayer, et c'est le bon conseil puisque c'est l'email
+           qui a échoué — mais la ligne en base, elle, est déjà écrite.
+       Une seule branche du ternaire s'exécute : au plus un `fetch` par appel,
+       et zéro dès que l'archivage a déjà réussi. */
+    try {
+      const [delivered, archived] = await Promise.all([
+        sendViaWeb3Forms(form, payload.brief),
+        archivedOnce.current
+          ? Promise.resolve(true)
+          : fetch("/api/contact", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            })
+              .then(async (response) => {
+                if (!response.ok) return false;
+                const corps = (await response.json()) as { archived?: boolean };
+                return corps.archived === true;
+              })
+              .catch(() => false),
+      ]);
+
+      if (archived) archivedOnce.current = true;
+
+      /* Le succès se juge sur l'email, jamais sur l'archivage : une demande
+         rangée en base que personne ne lit n'est pas une demande reçue. */
+      if (!delivered) {
+        setStatus("error");
+        setError(
+          archived
+            ? "Votre demande a bien été enregistrée, mais l'email n'a pas pu être confirmé. Écrivez-nous directement pour être certain de nous joindre."
+            : "L'envoi n'a pas abouti. Vérifiez votre connexion puis réessayez, ou écrivez-nous directement.",
+        );
+        return;
+      }
+
+      setStatus("sent");
+      setBrief({});
+    } finally {
+      /* Le verrou tombe quoi qu'il arrive — y compris si une exception
+         inattendue traverse le bloc. Sans ce `finally`, une seule erreur non
+         prévue condamnerait le formulaire au silence pour toute la session. */
+      sending.current = false;
     }
-
-    setStatus("sent");
-    setBrief({});
   }
 
   if (status === "sent") {

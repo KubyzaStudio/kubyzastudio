@@ -167,8 +167,17 @@ export const onRequestPost = async (context: {
   let archived = false;
   try {
     archived = await archive(env, {
-      ...fields,
       created_at: new Date().toISOString(),
+      activity: fields.activity,
+      company: fields.company,
+      project_type: fields.projectType,
+      goal: fields.goal,
+      budget: fields.budget,
+      message: fields.message,
+      name: fields.name,
+      email: fields.email,
+      phone: fields.phone,
+      brief: fields.brief,
     });
   } catch {
     /* Réseau injoignable : `archived` reste faux, et le navigateur en tire

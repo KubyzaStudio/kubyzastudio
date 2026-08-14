@@ -204,8 +204,8 @@ paquet npm.
 Ce qu'elle fait :
 
 1. Rejette les corps de plus de 12 Ko.
-2. Ignore silencieusement le piège à robots (champ caché + envoi trop rapide).
-3. Nettoie et borne chaque champ, échappe le HTML avant l'email.
+2. Ignore silencieusement le piège à robots (champ caché).
+3. Nettoie et borne chaque champ (caractères de contrôle, longueur maximale).
 4. Limite à 5 envois par heure et par IP **si** un namespace KV nommé
    `CONTACT_RATE_LIMIT` est associé au projet.
 5. Archive dans Supabase si `SUPABASE_URL` et `SUPABASE_SERVICE_ROLE_KEY` sont

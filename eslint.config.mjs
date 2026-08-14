@@ -6,7 +6,12 @@ const eslintConfig = [
   ...coreWebVitals,
   ...typescript,
   {
-    ignores: [".next/**", "out/**", "node_modules/**"],
+    /* `.wrangler/` contient les bundles temporaires que `wrangler pages dev`
+       génère à chaque démarrage — du code d'échafaudage, pas le nôtre. Sans
+       cette ligne, un simple `npm start` suffit à faire remonter des
+       avertissements sur des fichiers que personne n'a écrits et que le
+       prochain démarrage remplacera. */
+    ignores: [".next/**", "out/**", "node_modules/**", ".wrangler/**"],
   },
 ];
 
