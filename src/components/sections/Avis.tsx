@@ -2,7 +2,9 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
+import { lockScroll } from "@/lib/scroll-lock";
 import { SectionMarker } from "@/components/ui/SectionMarker";
 import { Reveal } from "@/components/ui/Reveal";
 import { Button } from "@/components/ui/Button";
@@ -102,16 +104,21 @@ export function Avis() {
     return () => observer.disconnect();
   }, [load]);
 
-  // Le panneau ouvert fige la page derrière lui, comme le journal de bord.
+  /* Le panneau ouvert fige la page derrière lui.
+     `overflow: hidden` seul ne suffisait pas : Lenis déplace la page par
+     programme, et une règle d'`overflow` n'arrête que l'utilisateur, pas un
+     appel à `scrollTo`. Le verrou vit maintenant dans `scroll-lock.ts`, qui
+     arrête aussi Lenis, compense la barre de défilement et rend la position
+     exacte à la fermeture. La fonction retournée est son propre nettoyage. */
   useEffect(() => {
     if (!open) return;
-    document.documentElement.style.overflow = "hidden";
+    const unlock = lockScroll();
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
     };
     window.addEventListener("keydown", onKey);
     return () => {
-      document.documentElement.style.overflow = "";
+      unlock();
       window.removeEventListener("keydown", onKey);
     };
   }, [open]);
@@ -293,7 +300,30 @@ function Stars({ value, className }: { value: number; className?: string }) {
  * recouvre la page, et il en a déjà fait l'expérience dans le menu.
  */
 function ReviewPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
-  return (
+  /* LE PANNEAU DOIT SORTIR DE `<main>`, SINON SON `z-index` NE VEUT RIEN DIRE
+     ==========================================================================
+     `SiteShell` rend `<main className="vignette relative z-1">`. Un
+     `position: relative` accompagné d'un `z-index` crée un CONTEXTE
+     D'EMPILEMENT : tout ce qui vit à l'intérieur est empilé entre voisins,
+     puis le bloc entier est posé dans la page à la valeur du parent — ici 1.
+
+     Le panneau était rendu dans `<main>`. Son `z-80` ne le comparait donc
+     qu'à ses frères de section, jamais au HUD, qui est un frère de `<main>`
+     posé à `z-90` dans le contexte racine. La marque en haut à gauche et la
+     jauge en haut à droite passaient devant la modale, quel que soit le
+     chiffre écrit ici : monter `z-80` à `z-999` n'aurait rien changé, parce
+     que la comparaison n'a jamais lieu à ce niveau.
+
+     Le portail règle la cause plutôt que le symptôme : le panneau est monté
+     directement sous `<body>`, dans le contexte racine, où son `z-index` est
+     enfin comparé à celui du HUD. Le composant, lui, ne bouge pas de l'arbre
+     React — état, contexte et `AnimatePresence` fonctionnent à l'identique.
+
+     Le garde `typeof document` est indispensable : le site est un export
+     statique, ce composant est donc rendu côté serveur, où `document`
+     n'existe pas. Il ne crée aucun écart d'hydratation — un portail ne rend
+     rien à l'endroit où il est écrit, des deux côtés. */
+  const panel = (
     <AnimatePresence>
       {open && (
         <motion.div
@@ -301,7 +331,12 @@ function ReviewPanel({ open, onClose }: { open: boolean; onClose: () => void }) 
           role="dialog"
           aria-modal="true"
           aria-label="Laisser un avis"
-          className="fixed inset-0 z-80 flex flex-col justify-center overflow-y-auto overscroll-contain"
+          /* z-95 : au-dessus du HUD (z-90), sous le préchargeur (z-100).
+             `data-lenis-prevent` dit à Lenis de ne pas confisquer la molette
+             au-dessus du panneau — le contenu défile nativement à
+             l'intérieur, même si l'on redémarrait Lenis par erreur. */
+          data-lenis-prevent
+          className="fixed inset-0 z-95 flex flex-col justify-center overflow-y-auto overscroll-contain"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0, transition: { duration: 0.35, delay: 0.1 } }}
@@ -341,6 +376,11 @@ function ReviewPanel({ open, onClose }: { open: boolean; onClose: () => void }) 
       )}
     </AnimatePresence>
   );
+
+  /* Côté serveur, on ne rend rien : le panneau est fermé au premier rendu de
+     toute façon, il n'y a donc aucun contenu à perdre. */
+  if (typeof document === "undefined") return null;
+  return createPortal(panel, document.body);
 }
 
 /**

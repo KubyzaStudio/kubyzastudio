@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { viewportState } from "@/lib/viewport-state";
+import { registerSmoothScroller } from "@/lib/scroll-lock";
 import { usePrefersReducedMotion } from "@/lib/hooks";
 
 /**
@@ -79,6 +80,11 @@ export function ExperienceProvider({ children }: { children: React.ReactNode }) 
         lenis.scrollTo(0, { immediate: true, force: true });
       }
 
+      /* Seule façon d'arrêter le défilement quand une modale s'ouvre : Lenis
+         déplace la page par programme, ce qu'`overflow: hidden` ne bloque
+         pas. Voir `src/lib/scroll-lock.ts`. */
+      registerSmoothScroller(lenis);
+
       lenis.on("scroll", ({ progress, velocity }: typeof lenis) => {
         viewportState.scroll = progress;
         viewportState.velocity = velocity;
@@ -142,6 +148,7 @@ export function ExperienceProvider({ children }: { children: React.ReactNode }) 
         }
         document.removeEventListener("click", onAnchorClick);
         gsap.ticker.remove(raf);
+        registerSmoothScroller(null);
         lenis.destroy();
       };
     })();

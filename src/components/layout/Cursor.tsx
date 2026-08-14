@@ -75,7 +75,12 @@ export function Cursor() {
   if (isTouch || reduced) return null;
 
   return (
-    <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-90 hidden md:block">
+    /* z-96 : au-dessus de la modale d'avis (z-95), sous le préchargeur
+       (z-100) — sa priorité au lancement reste donc inchangée. `globals.css`
+       masque le curseur natif sur tout le `body` ; si celui-ci passait
+       derrière une modale, il ne resterait plus aucun pointeur visible sur
+       les étoiles et les boutons. */
+    <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-96 hidden md:block">
       <div
         ref={ringRef}
         data-state="idle"
