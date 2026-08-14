@@ -208,12 +208,12 @@ Ce qu'elle fait :
 3. Nettoie et borne chaque champ, échappe le HTML avant l'email.
 4. Limite à 5 envois par heure et par IP **si** un namespace KV nommé
    `CONTACT_RATE_LIMIT` est associé au projet.
-5. Envoie la demande via Resend, plus un accusé de réception au visiteur.
-6. Archive dans Supabase si `SUPABASE_URL` et `SUPABASE_SERVICE_ROLE_KEY` sont
+5. Archive dans Supabase si `SUPABASE_URL` et `SUPABASE_SERVICE_ROLE_KEY` sont
    définis (table `contact_requests`).
 
-Sans clé Resend configurée, la fonction répond `502` : le visiteur voit alors le
-message de repli « écrivez-nous directement » plutôt qu'un faux succès.
+L'email est envoyé directement depuis le navigateur via Web3Forms. La Function
+Cloudflare sert à valider et archiver la demande ; elle n'utilise aucun service
+d'envoi d'email.
 
 ### Table Supabase (facultative)
 
@@ -328,10 +328,7 @@ Copier `.env.example` :
 | Variable | Obligatoire | Rôle |
 | --- | --- | --- |
 | `NEXT_PUBLIC_SITE_URL` | oui | URL canonique, sitemap, Open Graph |
-| `NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY` | pour le formulaire | Repli d'envoi, appelé depuis le navigateur |
-| `RESEND_API_KEY` | facultatif | Clé API Resend — chemin préféré |
-| `CONTACT_FROM_EMAIL` | avec Resend | Expéditeur **d'un domaine vérifié** |
-| `CONTACT_TO_EMAIL` | avec Resend | Destinataire des demandes |
+| `NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY` | pour le formulaire | Clé Web3Forms, appelée depuis le navigateur |
 | `SUPABASE_URL` | pour les avis | Base des avis, et archivage des demandes |
 | `SUPABASE_ANON_KEY` | pour les avis | Lecture et dépôt des avis, borné par RLS |
 | `SUPABASE_SERVICE_ROLE_KEY` | non | Archivage des demandes **uniquement** |
@@ -341,17 +338,14 @@ Copier `.env.example` :
 > pour les avis. Aucune de ces variables n'est préfixée `NEXT_PUBLIC_` :
 > elles restent toutes côté serveur.
 
-Le formulaire de contact emprunte deux chemins, dans cet ordre. `/api/contact`
-tente Resend ; si aucun transporteur n'est configuré, elle répond
-`delivery_unavailable` et le navigateur bascule sur Web3Forms. Renseigner
-Resend suffit à reprendre la main — le repli cesse alors d'être atteint, il
-n'y a rien à retirer.
+Le formulaire de contact utilise **Web3Forms directement depuis le navigateur**.
+La clé `NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY` est publique par conception pour ce
+type d'intégration. Après l'envoi, `/api/contact` archive la demande dans
+Supabase sans bloquer le succès de l'email.
 
-Web3Forms **ne peut pas** être appelé côté serveur : leur plan gratuit répond
-`403 — Use our API in client side`. C'est pourquoi sa clé porte le préfixe
-`NEXT_PUBLIC_` et que `https://api.web3forms.com` figure dans la directive
-`connect-src` de `public/_headers`. Cette clé est publique par conception ;
-aucune clé Supabase ne doit jamais l'être.
+Web3Forms doit être appelé côté navigateur : c'est pourquoi sa clé porte le
+préfixe `NEXT_PUBLIC_` et que `https://api.web3forms.com` figure dans la directive
+`connect-src` de `public/_headers`. Les clés Supabase restent, elles, côté serveur.
 
 `NEXT_PUBLIC_SITE_URL` est lue **au build** : la modifier impose un redéploiement.
 
@@ -428,10 +422,8 @@ Restent ces points, qui dépendent d'informations ou d'accès extérieurs.
 - [ ] **Telegram** — seul canal dont l'identifiant diffère des deux autres
       (`kubyzastudio` alors que Snapchat et Instagram sont `kubyza.studio`).
       À confirmer, puis aligner dans `site.ts` ou par `NEXT_PUBLIC_TELEGRAM_URL`.
-- [ ] **Domaine** — définir `NEXT_PUBLIC_SITE_URL` sur le domaine final.
-- [ ] **Resend** — `CONTACT_TO_EMAIL` est l'adresse Gmail du studio, mais
-      `CONTACT_FROM_EMAIL` doit appartenir à un **domaine vérifié** dans Resend :
-      une adresse Gmail en expéditeur sera refusée par l'API.
+- [x] **Domaine** — `NEXT_PUBLIC_SITE_URL` utilise désormais `https://kubyzastudio.cloud`.
+- [x] **Contact** — Web3Forms est le seul service d'envoi d'email utilisé par le projet.
 - [ ] **Avis clients** — exécuter `supabase/reviews.sql`, puis renseigner
       `SUPABASE_URL` et `SUPABASE_ANON_KEY` dans Cloudflare Pages. Tant que
       ces deux variables sont absentes, la section reste en ligne et affiche

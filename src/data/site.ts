@@ -109,7 +109,7 @@ export const site = {
     "Des sites web modernes, pensés pour donner une nouvelle dimension à votre activité.",
   description:
     "Kubyza Studio crée des sites web modernes, rapides et sur-mesure pour les commerçants, artisans et petites entreprises. Basé à Montereau-Fault-Yonne, en Seine-et-Marne.",
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://kubyza.studio",
+  url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://kubyzastudio.cloud",
 
   contact: {
     email: "kubyza.studio@gmail.com",

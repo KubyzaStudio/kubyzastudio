@@ -4,13 +4,15 @@
   "private": true,
   "description": "Kubyza Studio — Nous lançons votre présence en ligne.",
   "scripts": {
-  "dev": "next dev",
-  "build": "next build",
-  "start": "next start",
-  "lint": "next lint",
-  "preview": "npm run build && wrangler pages dev",
-  "deploy": "npm run build && wrangler pages deploy"
-},
+    "dev": "next dev",
+    "build": "next build",
+    "//start": "`next start` refuse de démarrer avec `output: export` — il n'y a pas de serveur Next à lancer. Wrangler sert le dossier `out/` ET les Pages Functions de `functions/`, ce qui est exactement la production.",
+    "start": "wrangler pages dev",
+    "//lint": "`next lint` a été retiré de Next.js 16 : la commande n'existe plus et `next` interprétait `lint` comme un dossier de projet.",
+    "lint": "eslint .",
+    "preview": "npm run build && wrangler pages dev",
+    "deploy": "npm run build && wrangler pages deploy"
+  },
   "dependencies": {
     "@react-three/drei": "^10.7.8",
     "@react-three/fiber": "^9.7.0",

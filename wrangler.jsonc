@@ -34,6 +34,6 @@
   "compatibility_date": "2026-08-08"
 
   // Les Pages Functions de `functions/` sont détectées automatiquement : rien
-  // à déclarer. Leurs secrets (Supabase, Resend) se posent dans le dashboard,
+  // à déclarer. Les secrets Supabase se posent dans le dashboard,
   // Settings > Environment variables — jamais dans ce fichier, qui est versionné.
 }

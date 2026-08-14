@@ -67,25 +67,24 @@ const EASE = [0.16, 1, 0.3, 1] as const;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 /**
- * LE REPLI D'ENVOI
- * ==========================================================================
- * `/api/contact` reste la voie normale : elle envoie par Resend, depuis le
- * domaine du studio, et archive la demande. Mais Resend exige un domaine
- * vérifié comme expéditeur — une adresse Gmail est refusée par son API. Tant
- * que ce domaine n'existe pas, la route répond `delivery_unavailable` et le
- * formulaire ne pouvait rien envoyer du tout.
+ * Envoi du formulaire via Web3Forms.
  *
- * Web3Forms comble ce trou. Il ne peut pas être appelé depuis la Pages
- * Function : leur plan gratuit refuse les requêtes serveur (403, « Use our
- * API in client side »). L'appel part donc d'ici, du navigateur, ce qui est
- * l'usage qu'ils documentent — et la raison pour laquelle leur clé d'accès
- * est publique par conception : elle ne donne que le droit de déposer un
- * message dans une boîte, jamais d'en lire un.
+ * Web3Forms est appelé directement depuis le navigateur, conformément à
+ * l'usage de leur offre gratuite : leur plan gratuit refuse les appels
+ * serveur (403, « Use our API in client side »). La Function `/api/contact`
+ * est appelée en parallèle pour valider et archiver la demande dans Supabase.
  *
- * Le repli ne se déclenche QUE sur `delivery_unavailable`. Toute autre
- * réponse — succès, limite de débit, données refusées — est respectée telle
- * quelle. Le jour où Resend est configuré, ce chemin cesse de lui-même
- * d'être atteint : il n'y aura rien à retirer.
+ * ⚠ CETTE CLÉ EST FIGÉE AU BUILD, PAS LUE À L'EXÉCUTION
+ * --------------------------------------------------------------------------
+ * `NEXT_PUBLIC_*` n'est pas une variable d'environnement au sens habituel :
+ * Next la remplace par sa valeur littérale pendant `next build`, et le site
+ * étant un export statique, plus rien ne la relit ensuite. La poser dans
+ * Cloudflare Pages ne suffit donc pas — il faut qu'elle y soit AVANT le
+ * build, et un changement de valeur exige un redéploiement.
+ *
+ * Vide, la constante ne provoque aucune erreur visible : `sendViaWeb3Forms`
+ * répond simplement `false`, et le formulaire ne repose plus que sur
+ * l'archivage Supabase. Vérifier les deux ensemble, jamais l'un seul.
  */
 const WEB3FORMS_KEY = process.env.NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY ?? "";
 
@@ -218,37 +217,48 @@ export function ContactForm() {
     setStatus("sending");
     setError(null);
 
-    try {
-      const response = await fetch("/api/contact", {
+    const payload = { ...form, brief: brief.join(" · ") };
+
+    /* LES DEUX CHEMINS PARTENT ENSEMBLE, ET AUCUN N'EST CONDITIONNÉ À L'AUTRE
+       ======================================================================
+       L'ordre précédent était : envoyer par Web3Forms, puis archiver *si*
+       l'envoi avait abouti. Il rendait l'archivage inatteignable exactement
+       le jour où il servait — clé Web3Forms absente du build, quota atteint,
+       compte suspendu — et la demande d'un client était alors perdue pour de
+       bon : pas d'email, pas de ligne en base, un message d'erreur, et plus
+       rien nulle part.
+
+       Les deux appels partent donc maintenant en parallèle, sans que l'un
+       puisse empêcher l'autre. Le succès est annoncé dès que l'un des deux a
+       réellement abouti — `archived` vient du serveur et ne vaut `true` que
+       si l'insertion Supabase a été acceptée, jamais par défaut. Un « c'est
+       noté » affiché ici correspond donc toujours à une demande que le
+       studio peut lire quelque part. */
+    const [delivered, archived] = await Promise.all([
+      sendViaWeb3Forms(form, payload.brief),
+      fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, brief: brief.join(" · ") }),
-      });
+        body: JSON.stringify(payload),
+      })
+        .then(async (response) => {
+          if (!response.ok) return false;
+          const corps = (await response.json()) as { archived?: boolean };
+          return corps.archived === true;
+        })
+        .catch(() => false),
+    ]);
 
-      if (!response.ok) {
-        /* `delivery_unavailable` a un sens précis : la demande est valide,
-           la route l'a acceptée, mais aucun transporteur n'était configuré
-           pour la remettre. C'est le seul cas où le repli navigateur a lieu
-           d'être — une limite de débit ou des données refusées doivent
-           remonter au visiteur, pas être contournées. */
-        const raison = await response
-          .json()
-          .then((corps: { error?: string }) => corps.error)
-          .catch(() => undefined);
-
-        if (raison !== "delivery_unavailable" || !(await sendViaWeb3Forms(form, brief.join(" · ")))) {
-          throw new Error(raison ?? String(response.status));
-        }
-      }
-
-      setStatus("sent");
-      setBrief({});
-    } catch {
+    if (!delivered && !archived) {
       setStatus("error");
       setError(
         "L'envoi n'a pas abouti. Écrivez-nous directement, on vous répond aussi vite.",
       );
+      return;
     }
+
+    setStatus("sent");
+    setBrief({});
   }
 
   if (status === "sent") {
